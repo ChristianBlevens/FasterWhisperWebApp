@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  whisper-app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./transcripts:/app/transcripts
+      - ./compilations:/app/compilations
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - CUDA_CACHE_DISABLE=0
+      - CUDA_LAUNCH_BLOCKING=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: "all"
+              capabilities: [gpu]
+    restart: unless-stopped

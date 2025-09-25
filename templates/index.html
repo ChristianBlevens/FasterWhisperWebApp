@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faster-Whisper YouTube Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .limits-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .limits-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .limit-input {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .limit-input.active {
+            display: block;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.processing {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            display: block;
+        }
+
+        .status.completed {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            display: block;
+        }
+
+        .status.error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+
+        .files-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .download-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .gpu-status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video Compilation Creator</h1>
+
+        <div class="gpu-status">
+            🚀 GPU-Accelerated Processing Enabled
+        </div>
+
+        <form id="compilationForm">
+            <div class="form-group">
+                <label for="compilation-url">YouTube URL:</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="url" id="compilation-url" name="url" required
+                           placeholder="https://www.youtube.com/watch?v=..." style="flex: 1;">
+                    <button type="button" id="test-transcript-btn" class="btn" style="width: auto; padding: 10px 15px; font-size: 14px; background: #4caf50;">
+                        📄 Test Transcript
+                    </button>
+                </div>
+                <div id="transcript-status" style="margin-top: 10px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="target-words">Target Words (comma-separated):</label>
+                <input type="text" id="target-words" name="target_words" required
+                       placeholder="hello, world, example">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    Words to find in the video for compilation clips
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="model-size">Whisper Model:</label>
+                <select id="model-size" name="model_size" onchange="switchModel(this.value)">
+                    <option value="tiny">Tiny (fastest, least accurate, ~1GB VRAM)</option>
+                    <option value="base">Base (fast, low accuracy, ~1GB VRAM)</option>
+                    <option value="small">Small (medium speed, ~2GB VRAM)</option>
+                    <option value="medium" selected>Medium (balanced, ~5GB VRAM) ✓ Loaded</option>
+                    <option value="large">Large (slow, high accuracy, ~10GB VRAM)</option>
+                    <option value="large-v2">Large-v2 (slower, higher accuracy, ~10GB VRAM)</option>
+                    <option value="large-v3">Large-v3 (slowest, best accuracy, ~10GB VRAM)</option>
+                </select>
+                <div id="model-status" style="margin-top: 5px; font-size: 14px; color: #4caf50;">
+                    ✅ Medium model loaded and ready
+                </div>
+            </div>
+
+            <div class="limits-section">
+                <div class="limits-title">Compilation Settings</div>
+
+                <div class="form-group">
+                    <label for="padding-before">Padding Before (seconds):</label>
+                    <input type="number" id="padding-before" name="padding_before"
+                           value="1.0" min="0" max="5" step="0.1">
+                </div>
+
+                <div class="form-group">
+                    <label for="padding-after">Padding After (seconds):</label>
+                    <input type="number" id="padding-after" name="padding_after"
+                           value="1.0" min="0" max="5" step="0.1">
+                </div>
+
+                <div class="form-group">
+                    <label for="merge-gap">Merge Gap (seconds):</label>
+                    <input type="number" id="merge-gap" name="merge_gap"
+                           value="2.0" min="0" max="10" step="0.1">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Clips within this gap will be merged together
+                    </small>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="enableCompilationLimit" onchange="toggleCompilationLimit()">
+                    <label for="enableCompilationLimit">Limit compilation length</label>
+                </div>
+                <div class="limit-input" id="compilationLimitInput">
+                    <input type="number" id="max-compilation-length" name="max_length"
+                           min="10" max="600" placeholder="Maximum seconds for compilation">
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="compilationSubmitBtn">
+                🎬 Create Compilation
+            </button>
+        </form>
+
+        <div id="compilation-status" class="status">
+            <div id="compilation-statusText"></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="compilation-progressFill"></div>
+            </div>
+            <div id="compilation-progressText"></div>
+            <div id="compilation-segments"></div>
+            <div id="compilation-video"></div>
+            <button id="stop-compilation-btn" class="btn" style="display: none; background: #f44336; margin-top: 10px;">
+                ⏹️ Stop Processing
+            </button>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+        let statusInterval = null;
+
+        function toggleCompilationLimit() {
+            const checkbox = document.getElementById('enableCompilationLimit');
+            const input = document.getElementById('compilationLimitInput');
+
+            if (checkbox.checked) {
+                input.classList.add('active');
+            } else {
+                input.classList.remove('active');
+                document.getElementById('max-compilation-length').value = '';
+            }
+        }
+
+        // Model switching functionality
+        async function switchModel(selectedModel) {
+            const modelStatus = document.getElementById('model-status');
+            const modelSelect = document.getElementById('model-size');
+
+            // Update status to loading
+            modelStatus.innerHTML = '<div style="color: #ff9800;">⏳ Loading ' + selectedModel + ' model...</div>';
+            modelSelect.disabled = true;
+
+            try {
+                const response = await fetch('/switch_model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ model_size: selectedModel })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Update all option labels to remove checkmarks
+                    Array.from(modelSelect.options).forEach(option => {
+                        option.text = option.text.replace(' ✓ Loaded', '');
+                    });
+
+                    // Add checkmark to selected model
+                    modelSelect.selectedOptions[0].text += ' ✓ Loaded';
+
+                    modelStatus.innerHTML = `<div style="color: #4caf50;">✅ ${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} model loaded and ready</div>`;
+                } else {
+                    modelStatus.innerHTML = `<div style="color: #f44336;">❌ Failed to load ${selectedModel}: ${result.error}</div>`;
+                    // Revert selection if loading failed
+                    modelSelect.value = result.current_model || 'medium';
+                }
+            } catch (error) {
+                modelStatus.innerHTML = `<div style="color: #f44336;">❌ Network error: ${error.message}</div>`;
+                // Revert selection if network error
+                modelSelect.value = 'medium';
+            } finally {
+                modelSelect.disabled = false;
+            }
+        }
+
+        // Test transcript functionality
+        document.getElementById('test-transcript-btn').addEventListener('click', async function() {
+            const urlInput = document.getElementById('compilation-url');
+            const url = urlInput.value.trim();
+            const status = document.getElementById('transcript-status');
+
+            if (!url) {
+                status.innerHTML = '<div style="color: #f44336;">❌ Please enter a YouTube URL first</div>';
+                status.style.display = 'block';
+                return;
+            }
+
+            try {
+                this.disabled = true;
+                this.textContent = '⏳ Transcribing...';
+
+                status.innerHTML = '<div style="color: #2196f3;">🎙️ Processing transcript...</div>';
+                status.style.display = 'block';
+
+                const response = await fetch('/test_transcript', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    status.innerHTML = `
+                        <div style="color: #4caf50;">
+                            ✅ Transcript ready for: <strong>${result.title}</strong><br>
+                            Duration: ${Math.round(result.duration)}s<br>
+                            <a href="/download_transcript/${result.transcript_file}"
+                               style="color: #4caf50; text-decoration: underline;"
+                               download>📥 Download Transcript</a>
+                        </div>
+                    `;
+                } else {
+                    status.innerHTML = `<div style="color: #f44336;">❌ ${result.error}</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div style="color: #f44336;">❌ Network error: ${error.message}</div>`;
+            } finally {
+                this.disabled = false;
+                this.textContent = '📄 Test Transcript';
+            }
+        });
+
+        // Compilation form handler
+        document.getElementById('compilationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Convert target words to array
+            data.target_words = data.target_words.split(',').map(w => w.trim()).filter(w => w);
+
+            // Convert numbers (handle 0 values correctly)
+            data.padding_before = data.padding_before !== '' ? parseFloat(data.padding_before) : 1.0;
+            data.padding_after = data.padding_after !== '' ? parseFloat(data.padding_after) : 1.0;
+            data.merge_gap = data.merge_gap !== '' ? parseFloat(data.merge_gap) : 2.0;
+
+            // Only include max_length if enabled
+            if (!document.getElementById('enableCompilationLimit').checked) {
+                delete data.max_length;
+            } else {
+                data.max_length = parseInt(data.max_length);
+            }
+
+            try {
+                document.getElementById('compilationSubmitBtn').disabled = true;
+                document.getElementById('compilationSubmitBtn').textContent = '🔄 Starting...';
+
+                const response = await fetch('/create_compilation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    currentTaskId = result.task_id;
+                    showCompilationStatus('processing');
+                    document.getElementById('compilation-statusText').innerHTML =
+                        `Processing video: ${result.video_title}`;
+
+                    // Show stop button
+                    document.getElementById('stop-compilation-btn').style.display = 'block';
+
+                    // Start polling for status updates
+                    statusInterval = setInterval(checkCompilationStatus, 2000);
+                } else {
+                    showCompilationStatus('error');
+                    document.getElementById('compilation-statusText').textContent = result.error;
+                    resetCompilationButton();
+                }
+            } catch (error) {
+                showCompilationStatus('error');
+                document.getElementById('compilation-statusText').textContent = 'Network error: ' + error.message;
+                resetCompilationButton();
+            }
+        });
+
+        // Stop compilation handler
+        document.getElementById('stop-compilation-btn').addEventListener('click', async function() {
+            if (currentTaskId) {
+                try {
+                    await fetch(`/stop_compilation/${currentTaskId}`, { method: 'POST' });
+                    document.getElementById('stop-compilation-btn').textContent = '⏹️ Stopping...';
+                    document.getElementById('stop-compilation-btn').disabled = true;
+                } catch (error) {
+                    console.error('Stop request failed:', error);
+                }
+            }
+        });
+
+        async function checkCompilationStatus() {
+            if (!currentTaskId) return;
+
+            try {
+                const response = await fetch(`/compilation_status/${currentTaskId}`);
+                const status = await response.json();
+
+                if (status.status === 'processing') {
+                    let progressText = '';
+                    let progress = 0;
+
+                    if (status.stage === 'transcribing') {
+                        progressText = `Transcribing segment ${status.current_segment || 1} of ${status.total_segments || 1}`;
+                        progress = status.current_segment ? (status.current_segment / status.total_segments) * 40 : 0;
+                    } else if (status.stage === 'downloading') {
+                        progressText = `Downloading clip ${status.current_clip || 1} of ${status.total_clips || 1}`;
+                        progress = 40 + (status.current_clip ? (status.current_clip / status.total_clips) * 40 : 0);
+                    } else if (status.stage === 'compiling') {
+                        progressText = 'Creating compilation video...';
+                        progress = 80;
+                    } else {
+                        progressText = status.stage || 'Processing...';
+                        progress = status.progress || 0;
+                    }
+
+                    document.getElementById('compilation-progressFill').style.width = progress + '%';
+                    document.getElementById('compilation-progressText').textContent = progressText;
+
+                    // Update segments info
+                    if (status.segments_info) {
+                        document.getElementById('compilation-segments').innerHTML =
+                            `<div><strong>Found clips:</strong> ${status.segments_info.found_clips} | <strong>Duration:</strong> ${status.segments_info.total_duration}s</div>`;
+                    }
+
+                } else if (status.status === 'completed') {
+                    clearInterval(statusInterval);
+                    showCompilationStatus('completed');
+
+                    document.getElementById('compilation-progressFill').style.width = '100%';
+                    document.getElementById('compilation-progressText').textContent = 'Completed!';
+                    document.getElementById('stop-compilation-btn').style.display = 'none';
+
+                    if (status.video_file) {
+                        document.getElementById('compilation-statusText').innerHTML =
+                            `✅ Compilation created successfully!<br>Duration: ${status.final_duration}s`;
+
+                        // Show video player and download
+                        document.getElementById('compilation-video').innerHTML = `
+                            <div style="margin-top: 20px;">
+                                <h3>Your Compilation:</h3>
+                                <video controls style="width: 100%; max-width: 600px; margin: 10px 0;">
+                                    <source src="/compilation_video/${status.video_file}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <br>
+                                <a href="/download_compilation/${status.video_file}" class="btn" style="display: inline-block; text-decoration: none; margin-top: 10px;">
+                                    📥 Download Compilation
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('compilation-statusText').innerHTML = '❌ No clips found matching target words';
+                    }
+
+                    resetCompilationButton();
+
+                } else if (status.status === 'error') {
+                    clearInterval(statusInterval);
+                    showCompilationStatus('error');
+                    document.getElementById('compilation-statusText').textContent = status.error || 'Processing failed';
+                    document.getElementById('stop-compilation-btn').style.display = 'none';
+                    resetCompilationButton();
+
+                } else if (status.status === 'stopped') {
+                    clearInterval(statusInterval);
+                    showCompilationStatus('completed');
+                    document.getElementById('compilation-statusText').innerHTML = '⏹️ Processing stopped by user';
+                    document.getElementById('stop-compilation-btn').style.display = 'none';
+                    resetCompilationButton();
+                }
+            } catch (error) {
+                console.error('Compilation status check error:', error);
+            }
+        }
+
+        function showCompilationStatus(type) {
+            const status = document.getElementById('compilation-status');
+            status.className = `status ${type}`;
+        }
+
+        function resetCompilationButton() {
+            document.getElementById('compilationSubmitBtn').disabled = false;
+            document.getElementById('compilationSubmitBtn').textContent = '🎬 Create Compilation';
+        }
+    </script>
+</body>
+</html>

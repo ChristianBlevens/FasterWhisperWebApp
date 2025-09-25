@@ -1,0 +1,20 @@
+# Core ML/AI packages (need specific versions for compatibility)
+faster-whisper==0.10.0
+ctranslate2>=4.5.0
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.21.0
+
+# Video/Audio processing (use latest versions)
+yt-dlp  # Always get the latest version
+moviepy==1.0.3
+ffmpeg-python
+
+# Web framework and server (use latest compatible versions)
+flask
+gunicorn
+Werkzeug
+
+# Utilities (use latest versions)
+requests
+psutil
