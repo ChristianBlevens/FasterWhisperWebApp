@@ -19,6 +19,9 @@ from stages.stage4_clip_planning import create_clip_plan
 from stages.stage5_clip_download import download_clips_batch
 from stages.stage6_compilation import compile_video
 
+# Import database client
+from transcript_database_client import get_transcript_from_db, save_transcript_to_db, check_database_health
+
 app = Flask(__name__)
 
 # Global variables
@@ -181,26 +184,76 @@ def rename_project(project_id):
 
 @app.route('/api/projects/<project_id>/stage1/analyze', methods=['POST'])
 def stage1_analyze(project_id):
-    """Stage 1: Analyze videos (no segmentation)"""
+    """Stage 1: Analyze videos and check database for existing transcripts"""
     try:
         project = Project(project_id)
         data = request.json
 
         url = data.get('url')
+        use_database = data.get('use_database', True)
 
         if not url:
             return jsonify({'error': 'URL required'}), 400
 
+        # Clear Stage 1 output (stage 1 always clears)
+        project.clear_stage_output(1)
+
         project.update_stage_status('segmentation', 'processing', 0)
 
         result = analyze_videos(url)
+        videos = result['videos']
+
+        transcripts_dir = project.get_transcripts_dir()
+        transcripts_dir.mkdir(parents=True, exist_ok=True)
+
+        db_fetched_count = 0
+
+        # Check database for existing transcripts if enabled
+        if use_database:
+            print("Stage 1: Checking database connection...", flush=True)
+            db_healthy = check_database_health()
+            if db_healthy:
+                print("Stage 1: Database connected successfully", flush=True)
+            else:
+                print("Stage 1: Database not available - continuing without it", flush=True)
+
+        if use_database and check_database_health():
+            print("Stage 1: Querying database for existing transcripts", flush=True)
+            import json
+
+            for video in videos:
+                video_url = video.get('video_url')
+                db_transcript = get_transcript_from_db(video_url)
+
+                if db_transcript:
+                    print(f"Found transcript in database for video {video['video_id']}: {video.get('video_title', 'Unknown')}", flush=True)
+
+                    # Save transcript to Stage 3 output
+                    transcript_file = f"video_{video['video_id']}_transcript.json"
+                    transcript_path = transcripts_dir / transcript_file
+
+                    with open(transcript_path, 'w') as f:
+                        json.dump({
+                            'segments': db_transcript['segments'],
+                            'language': 'en'
+                        }, f, indent=2)
+
+                    # Mark as already transcribed (skip Stage 2 and 3)
+                    video['transcribed'] = True
+                    video['transcript_file'] = transcript_file
+                    video['downloaded'] = True  # Mark as downloaded so Stage 2 skips it
+                    db_fetched_count += 1
 
         project.metadata['source_url'] = result['source_url']
         project.metadata['collection_title'] = result['collection_title']
-        project.save_videos(result['videos'])
+        project.save_videos(videos)
+
+        result['db_fetched_count'] = db_fetched_count
+
         project.update_stage_status('segmentation', 'completed', 100,
                                      total_videos=result['total_videos'],
-                                     total_duration=result['total_duration'])
+                                     total_duration=result['total_duration'],
+                                     db_fetched_count=db_fetched_count)
 
         return jsonify({
             'success': True,
@@ -273,6 +326,7 @@ def stage3_transcribe(project_id):
         data = request.json
 
         language = data.get('language', 'en')
+        use_database = data.get('use_database', True)
 
         videos = project.load_videos()
         if not videos:
@@ -280,24 +334,101 @@ def stage3_transcribe(project_id):
 
         project.update_stage_status('transcription', 'processing', 0)
 
+        transcripts_dir = project.get_transcripts_dir()
+        audio_dir = project.get_audio_segments_dir()
+
+        db_fetched_count = 0
+        db_saved_count = 0
+
+        # Try to fetch from database if enabled
+        if use_database:
+            print("Stage 3: Checking database connection...", flush=True)
+            db_healthy = check_database_health()
+            if db_healthy:
+                print("Stage 3: Database connected successfully", flush=True)
+            else:
+                print("Stage 3: Database not available - continuing without it", flush=True)
+
+        if use_database and check_database_health():
+            print("Stage 3: Checking for existing transcripts in database", flush=True)
+            for video in videos:
+                if video.get('transcribed'):
+                    continue
+
+                video_url = video.get('video_url')
+                db_transcript = get_transcript_from_db(video_url)
+
+                if db_transcript:
+                    print(f"Found transcript in database for video {video['video_id']}", flush=True)
+
+                    # Save to local file
+                    transcript_file = f"video_{video['video_id']}_transcript.json"
+                    transcript_path = transcripts_dir / transcript_file
+
+                    import json
+                    with open(transcript_path, 'w') as f:
+                        json.dump({
+                            'segments': db_transcript['segments'],
+                            'language': language
+                        }, f, indent=2)
+
+                    video['transcribed'] = True
+                    video['transcript_file'] = transcript_file
+                    db_fetched_count += 1
+
+            if db_fetched_count > 0:
+                project.save_videos(videos)
+                print(f"Fetched {db_fetched_count} transcripts from database", flush=True)
+
         def progress_callback(current, total):
             progress = (current / total) * 100
             project.update_stage_status('transcription', 'processing', progress)
 
-        audio_dir = project.get_audio_segments_dir()
-
         result = transcribe_all_segments(
             videos,
             audio_dir,
-            project.get_transcripts_dir(),
+            transcripts_dir,
             whisper_model,
             language,
             progress_callback
         )
 
+        # Save new transcripts to database if enabled
+        if use_database and check_database_health():
+            print("Saving new transcripts to database", flush=True)
+            for video in videos:
+                if not video.get('transcribed') or not video.get('transcript_file'):
+                    continue
+
+                transcript_path = transcripts_dir / video['transcript_file']
+                if transcript_path.exists():
+                    import json
+                    with open(transcript_path, 'r') as f:
+                        transcript_data = json.load(f)
+
+                    video_title = video.get('video_title', 'Unknown')
+                    video_url = video['video_url']
+
+                    print(f"Sending transcript to database: {video_title} ({video_url})", flush=True)
+
+                    if save_transcript_to_db(
+                        video_url,
+                        video_title,
+                        transcript_data.get('segments', [])
+                    ):
+                        db_saved_count += 1
+                        print(f"Successfully saved transcript to database: {video_title}", flush=True)
+                    else:
+                        print(f"Failed to save transcript to database: {video_title}", flush=True)
+
+            if db_saved_count > 0:
+                print(f"Total saved to database: {db_saved_count} transcripts", flush=True)
+
         project.save_videos(videos)
 
         status = 'completed' if result['pending_count'] == 0 else 'partial'
+        result['db_fetched_count'] = db_fetched_count
+        result['db_saved_count'] = db_saved_count
         project.update_stage_status('transcription', status, 100, **result)
 
         return jsonify({
@@ -326,6 +457,9 @@ def stage4_plan(project_id):
 
         if not target_words:
             return jsonify({'error': 'Target words required'}), 400
+
+        # Clear Stage 4 output (stage 4 always clears)
+        project.clear_stage_output(4)
 
         videos = project.load_videos()
         if not videos:
@@ -601,4 +735,7 @@ print("=" * 60, flush=True)
 load_whisper_model()
 
 if __name__ == '__main__':
+    print("\n" + "=" * 60, flush=True)
+    print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
+    print("=" * 60 + "\n", flush=True)
     app.run(host='0.0.0.0', port=5000, debug=False)

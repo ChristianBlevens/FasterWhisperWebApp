@@ -543,15 +543,21 @@
             <div class="pipeline-inputs-small">
                 <div class="pipeline-input-group">
                     <label>Padding Before (s)</label>
-                    <input type="number" id="pipeline-padding-before" value="1.0" min="0" step="0.1" onchange="syncInput('padding-before', this.value)">
+                    <input type="number" id="pipeline-padding-before" value="0.3" min="0" step="0.1" onchange="syncInput('padding-before', this.value)">
                 </div>
                 <div class="pipeline-input-group">
                     <label>Padding After (s)</label>
-                    <input type="number" id="pipeline-padding-after" value="1.0" min="0" step="0.1" onchange="syncInput('padding-after', this.value)">
+                    <input type="number" id="pipeline-padding-after" value="0.3" min="0" step="0.1" onchange="syncInput('padding-after', this.value)">
                 </div>
                 <div class="pipeline-input-group">
                     <label>Merge Gap (s)</label>
                     <input type="number" id="pipeline-merge-gap" value="2.0" min="0" step="0.1" onchange="syncInput('merge-gap', this.value)">
+                </div>
+                <div class="pipeline-input-group">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="pipeline-use-database" checked onchange="syncInput('use-database', this.checked)">
+                        Use Database
+                    </label>
                 </div>
             </div>
             <div class="pipeline-stages">
@@ -728,19 +734,27 @@
                 <button class="btn btn-danger" onclick="clearStageOutput(3)">Clear Output</button>
             </div>
 
-            <div class="form-group">
-                <label>Language</label>
-                <select id="stage3-language">
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="it">Italian</option>
-                    <option value="pt">Portuguese</option>
-                    <option value="ja">Japanese</option>
-                    <option value="ko">Korean</option>
-                    <option value="zh">Chinese</option>
-                </select>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Language</label>
+                    <select id="stage3-language">
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 5px; margin-top: 25px;">
+                        <input type="checkbox" id="stage3-use-database" checked onchange="syncInput('use-database', this.checked)">
+                        Use Database
+                    </label>
+                </div>
             </div>
 
             <button class="btn btn-primary" onclick="runStage3()">Transcribe Audio</button>
@@ -791,11 +805,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Padding Before (seconds)</label>
-                    <input type="number" id="stage4-padding-before" value="1.0" min="0" step="0.1" onchange="syncInput('padding-before', this.value)">
+                    <input type="number" id="stage4-padding-before" value="0.3" min="0" step="0.1" onchange="syncInput('padding-before', this.value)">
                 </div>
                 <div class="form-group">
                     <label>Padding After (seconds)</label>
-                    <input type="number" id="stage4-padding-after" value="1.0" min="0" step="0.1" onchange="syncInput('padding-after', this.value)">
+                    <input type="number" id="stage4-padding-after" value="0.3" min="0" step="0.1" onchange="syncInput('padding-after', this.value)">
                 </div>
                 <div class="form-group">
                     <label>Merge Gap (seconds)</label>

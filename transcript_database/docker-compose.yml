@@ -1,0 +1,14 @@
+services:
+  transcript-db:
+    build: .
+    ports:
+      - "5001:5001"
+    volumes:
+      - transcript-data:/app/data
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+
+volumes:
+  transcript-data:

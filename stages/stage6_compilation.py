@@ -43,8 +43,8 @@ def compile_video(
 
     # Check which clips have audio streams
     input_files = []
-    has_audio = []
     failed_clips = []
+    skipped_no_audio = []
 
     for clip in downloaded_clips:
         clip_file = clip.get('clip_file')
@@ -61,22 +61,21 @@ def compile_video(
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
         clip_has_audio = bool(probe_result.stdout.strip())
 
-        input_files.append(str(clip_path))
-        has_audio.append(clip_has_audio)
+        if not clip_has_audio:
+            print(f"Skipping {clip_file} - no audio stream", flush=True)
+            skipped_no_audio.append(clip_file)
+            continue
 
-    # Build filter_complex with audio generation for clips without audio
+        input_files.append(str(clip_path))
+
+    # Build filter_complex for concat
     video_filters = []
     audio_filters = []
 
-    for idx, (input_file, clip_has_audio) in enumerate(zip(input_files, has_audio)):
-        # Reset timestamps to zero for each clip
-        video_filters.append(f"[{idx}:v]setpts=PTS-STARTPTS[v{idx}]")
-
-        if clip_has_audio:
-            audio_filters.append(f"[{idx}:a]asetpts=PTS-STARTPTS[a{idx}]")
-        else:
-            # Generate silent audio for clips without audio stream
-            audio_filters.append(f"[{idx}:v]anullsrc=channel_layout=stereo:sample_rate=44100[a{idx}]")
+    for idx in range(len(input_files)):
+        # Scale to common resolution and reset timestamps
+        video_filters.append(f"[{idx}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v{idx}]")
+        audio_filters.append(f"[{idx}:a]asetpts=PTS-STARTPTS[a{idx}]")
 
     if not input_files:
         return {
@@ -153,7 +152,8 @@ def compile_video(
             'total_clips': len(input_files),
             'final_duration': total_duration,
             'file_size_gb': final_size_gb,
-            'failed_clips': failed_clips
+            'failed_clips': failed_clips,
+            'skipped_no_audio': len(skipped_no_audio)
         }
 
     except Exception as e:

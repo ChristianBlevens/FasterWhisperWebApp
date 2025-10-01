@@ -22,6 +22,9 @@ function syncInput(type, value) {
     } else if (type === 'merge-gap') {
         document.getElementById('pipeline-merge-gap').value = value;
         document.getElementById('stage4-merge-gap').value = value;
+    } else if (type === 'use-database') {
+        document.getElementById('pipeline-use-database').checked = value;
+        document.getElementById('stage3-use-database').checked = value;
     }
 }
 
@@ -255,6 +258,7 @@ async function runStage1() {
     }
 
     const url = document.getElementById('stage1-url').value;
+    const useDatabase = document.getElementById('pipeline-use-database').checked;
 
     if (!url) {
         alert('Please enter a YouTube URL');
@@ -269,16 +273,22 @@ async function runStage1() {
         const response = await fetch(`/api/projects/${currentProject}/stage1/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url, use_database: useDatabase })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            displayResults('stage1', [
+            const results = [
                 { label: 'Total Videos', value: data.result.total_videos },
                 { label: 'Total Duration', value: `${(data.result.total_duration / 60).toFixed(1)} min (${(data.result.total_duration / 3600).toFixed(1)} hrs)` }
-            ]);
+            ];
+
+            if (data.result.db_fetched_count > 0) {
+                results.push({ label: 'From Database', value: data.result.db_fetched_count });
+            }
+
+            displayResults('stage1', results);
             await loadProjectStatus();
             await loadStageInfo(1);
             switchToTab(2);
@@ -374,6 +384,7 @@ async function runStage3() {
     }
 
     const language = document.getElementById('stage3-language').value;
+    const useDatabase = document.getElementById('stage3-use-database').checked;
 
     try {
         showProgress('stage3');
@@ -383,18 +394,27 @@ async function runStage3() {
         const response = await fetch(`/api/projects/${currentProject}/stage3/transcribe`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ language })
+            body: JSON.stringify({ language, use_database: useDatabase })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            displayResults('stage3', [
+            const results = [
                 { label: 'Transcribed', value: data.result.transcribed },
                 { label: 'Skipped', value: data.result.skipped },
                 { label: 'Failed', value: data.result.failed },
                 { label: 'Pending', value: data.result.pending_count }
-            ]);
+            ];
+
+            if (data.result.db_fetched_count > 0) {
+                results.push({ label: 'From Database', value: data.result.db_fetched_count });
+            }
+            if (data.result.db_saved_count > 0) {
+                results.push({ label: 'Saved to Database', value: data.result.db_saved_count });
+            }
+
+            displayResults('stage3', results);
             await loadProjectStatus();
             await loadStageInfo(3);
             switchToTab(4);
