@@ -734,14 +734,15 @@ def log_pipeline():
 
 # Initialize application
 print("=" * 60, flush=True)
-print("FasterWhisperWebApp v2.1.0 - 2025-09-30", flush=True)
+print("FasterWhisperWebApp v2.1.1 - 2025-10-01", flush=True)
 print("=" * 60, flush=True)
 
 # Preload the Whisper model
 load_whisper_model()
 
+print("\n" + "=" * 60, flush=True)
+print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
+print("=" * 60 + "\n", flush=True)
+
 if __name__ == '__main__':
-    print("\n" + "=" * 60, flush=True)
-    print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
-    print("=" * 60 + "\n", flush=True)
     app.run(host='0.0.0.0', port=5000, debug=False)
