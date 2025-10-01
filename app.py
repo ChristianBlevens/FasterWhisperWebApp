@@ -242,6 +242,7 @@ def stage1_analyze(project_id):
                     video['transcribed'] = True
                     video['transcript_file'] = transcript_file
                     video['downloaded'] = True  # Mark as downloaded so Stage 2 skips it
+                    video['from_database'] = True  # Don't re-upload to database in Stage 3
                     db_fetched_count += 1
 
         project.metadata['source_url'] = result['source_url']
@@ -374,6 +375,7 @@ def stage3_transcribe(project_id):
 
                     video['transcribed'] = True
                     video['transcript_file'] = transcript_file
+                    video['from_database'] = True  # Don't re-upload to database
                     db_fetched_count += 1
 
             if db_fetched_count > 0:
@@ -398,6 +400,10 @@ def stage3_transcribe(project_id):
             print("Saving new transcripts to database", flush=True)
             for video in videos:
                 if not video.get('transcribed') or not video.get('transcript_file'):
+                    continue
+
+                # Skip if this transcript came from the database
+                if video.get('from_database'):
                     continue
 
                 transcript_path = transcripts_dir / video['transcript_file']

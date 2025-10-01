@@ -20,7 +20,7 @@ services:
       - CUDA_CACHE_DISABLE=0
       - CUDA_LAUNCH_BLOCKING=0
       # - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-http://host.docker.internal:5001}  # Local testing
-      - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-https://mycomments.duckdns.org:5001}
+      - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-http://mycomments.duckdns.org:5001}
     deploy:
       resources:
         reservations:
