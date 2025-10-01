@@ -5,7 +5,8 @@ A web application that automatically finds and extracts specific words or phrase
 ## Quick Start
 
 ### What You Need
-1. **Docker Desktop** - [Download here](https://www.docker.com/products/docker-desktop/)
+1. **NVIDIA GPU**
+2. **Docker Desktop** - [Download here](https://www.docker.com/products/docker-desktop/)
 2. **This App** - Clone from GitHub (or download directly at https://github.com/ChristianBlevens/FasterWhisperWebApp):
    ```bash
    git clone https://github.com/ChristianBlevens/FasterWhisperWebApp.git
