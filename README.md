@@ -13,14 +13,39 @@ A web application that automatically finds and extracts specific words or phrase
    ```
 
 ### How to Run
-1. Open the project folder
-2. Type `cmd` in the file explorer address bar (this opens a command prompt in the folder)
-3. Run this command:
-   ```bash
-   docker-compose up --build
-   ```
-4. Wait for the message: **"FRONTEND READY - Application available at http://localhost:5000"**
-5. Open your browser and go to: **http://localhost:5000**
+
+**GPU Mode (requires NVIDIA GPU):**
+```bash
+docker-compose --profile gpu up --build
+```
+Or simply:
+```bash
+docker-compose up --build
+```
+
+**CPU Mode (no GPU required, uses database transcripts only):**
+```bash
+docker-compose --profile cpu up --build
+```
+
+#### Startup Messages
+
+Wait for one of these messages:
+
+**GPU Mode:**
+```
+FRONTEND READY - Application available at http://localhost:5000
+All 6 stages available (GPU mode)
+```
+
+**CPU Mode:**
+```
+FRONTEND READY - Application available at http://localhost:5000
+CPU MODE: Stages 1,4,5,6 available (requires database transcripts)
+Stages 2 and 3 are disabled - no transcription available
+```
+
+Then open your browser and go to: **http://localhost:5000**
 
 ### How to Use
 1. **Enter a YouTube URL** (video, channel, or playlist)
@@ -35,12 +60,44 @@ That's it! The app does everything automatically.
 
 ## Features
 
-- **Automatic Transcription**: Uses Faster Whisper AI to transcribe videos
+- **Automatic Transcription**: Uses Faster Whisper AI to transcribe videos (GPU mode only)
 - **Smart Word Search**: Finds exact words or phrases with context
 - **Cloud Database**: Saves transcriptions to avoid re-processing the same videos
 - **Parallel Processing**: Downloads clips concurrently for faster processing
+- **GPU/CPU Modes**: Works with or without NVIDIA GPU
 - **Comment Section**: Share feedback at the bottom of the page
 - **Customizable Parameters**: Adjust padding, merge gaps, and more
+
+---
+
+## GPU vs CPU Mode
+
+### GPU Mode (Default)
+- **Requirements**: NVIDIA GPU with CUDA support
+- **Available Stages**: All 6 stages (1-6)
+- **Transcription**: Full transcription capability with Faster Whisper
+- **Use Case**: Process any YouTube video, even without existing transcripts
+
+### CPU Mode
+- **Requirements**: No GPU needed, runs on any system
+- **Available Stages**: Stages 1, 4, 5, 6 only
+- **Transcription**: Disabled - must use videos with existing database transcripts
+- **Use Case**: Process videos that have been transcribed by other users or previously transcribed
+- **Limitations**:
+  - Stage 2 (Audio Download) is disabled
+  - Stage 3 (Transcription) is disabled
+  - Must rely on cloud database for transcripts
+
+**How CPU Mode Works:**
+1. Stage 1 checks database and downloads any existing transcripts
+2. If all videos have transcripts in database, you can proceed to Stage 4
+3. Stage 4, 5, 6 work normally (clip planning, download, compilation)
+
+**When to use CPU Mode:**
+- You don't have an NVIDIA GPU
+- You're processing popular videos likely to have transcripts in the database
+- You're re-processing videos you've already transcribed before
+- You're collaborating with others who have uploaded transcripts
 
 ---
 
@@ -375,18 +432,34 @@ POST /api/switch_model
 
 ### Frontend not loading
 - Wait for "FRONTEND READY" message in terminal
-- Whisper model loads on startup (can take 30-60 seconds)
+- Whisper model loads on startup in GPU mode (can take 30-60 seconds)
 - Don't access `localhost:5000` until this message appears
 
 ### Docker build fails
 - Ensure Docker Desktop is running
-- Check available disk space (Whisper model is ~3GB)
+- Check available disk space (Whisper model is ~3GB for GPU mode)
 - Try `docker-compose down` then `docker-compose up --build`
 
 ### GPU not detected
-- App requires NVIDIA GPU with CUDA support
+- If you want GPU mode, ensure NVIDIA GPU with CUDA support is installed
 - Install NVIDIA Docker runtime
-- Check GPU is accessible: `docker run --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi`
+- Check GPU is accessible: `nvidia-smi`
+- If no GPU, use CPU mode: `docker-compose --profile cpu up --build`
+
+### CPU Mode: "Stage 2/3 disabled" error
+- You're running in CPU mode which doesn't support transcription
+- Check if video has transcript in database by running Stage 1 first
+- If no transcript exists, you'll need to switch to GPU mode
+- Restart with: `docker-compose --profile gpu up --build`
+
+### Which mode am I running?
+- Check the startup logs for "Mode: GPU" or "Mode: CPU"
+- GPU mode shows "All 6 stages available"
+- CPU mode shows "Stages 1,4,5,6 available"
+
+### How to switch between modes
+- To use GPU mode: `docker-compose --profile gpu up --build` or `docker-compose up --build`
+- To use CPU mode: `docker-compose --profile cpu up --build`
 
 ### Slow downloads
 - YouTube may be throttling

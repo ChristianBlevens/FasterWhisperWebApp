@@ -941,5 +941,23 @@
     </div>
 
     <script src="/static/js/app.js"></script>
+    <script>
+        // Configure checkboxes based on app mode (CPU or GPU)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Detect app mode from backend
+            fetch('/api/app-mode')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.mode === 'cpu') {
+                        // Uncheck stage 2 and 3 in CPU mode
+                        document.getElementById('pipeline-stage2').checked = false;
+                        document.getElementById('pipeline-stage3').checked = false;
+                    }
+                })
+                .catch(err => {
+                    console.log('Could not detect app mode, defaulting to GPU mode');
+                });
+        });
+    </script>
 </body>
 </html>

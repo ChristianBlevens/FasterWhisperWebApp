@@ -1,6 +1,10 @@
 services:
-  whisper-app:
-    build: .
+  whisper-app-gpu:
+    profiles: ["gpu", "default"]
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    container_name: fasterwhisper-gpu
     ports:
       - "5000:5000"
     volumes:
@@ -12,6 +16,7 @@ services:
       - ./app.py:/app/app.py
       - ./transcript_database_client.py:/app/transcript_database_client.py
     environment:
+      - APP_MODE=gpu
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
       - NVIDIA_VISIBLE_DEVICES=all
@@ -19,7 +24,6 @@ services:
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - CUDA_CACHE_DISABLE=0
       - CUDA_LAUNCH_BLOCKING=0
-      # - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-http://host.docker.internal:5001}  # Local testing
       - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-http://mycomments.duckdns.org:5001}
     deploy:
       resources:
@@ -28,4 +32,27 @@ services:
             - driver: nvidia
               count: "all"
               capabilities: [gpu]
+    restart: unless-stopped
+
+  whisper-app-cpu:
+    profiles: ["cpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: fasterwhisper-cpu
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./projects:/app/projects
+      - ./stages:/app/stages
+      - ./models:/app/models
+      - ./templates:/app/templates
+      - ./static:/app/static
+      - ./app.py:/app/app.py
+      - ./transcript_database_client.py:/app/transcript_database_client.py
+    environment:
+      - APP_MODE=cpu
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - TRANSCRIPT_DB_URL=${TRANSCRIPT_DB_URL:-http://mycomments.duckdns.org:5001}
     restart: unless-stopped

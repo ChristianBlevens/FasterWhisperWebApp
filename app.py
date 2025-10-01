@@ -24,6 +24,10 @@ from transcript_database_client import get_transcript_from_db, save_transcript_t
 
 app = Flask(__name__)
 
+# Get application mode (GPU or CPU)
+APP_MODE = os.getenv('APP_MODE', 'gpu').lower()
+print(f"Application mode: {APP_MODE.upper()}", flush=True)
+
 # Global variables
 whisper_model = None
 model_loaded = False
@@ -57,6 +61,13 @@ def optimize_cuda_memory():
 def load_whisper_model(model_size="medium", force_reload=False):
     """Load the optimized Whisper model with GPU acceleration"""
     global whisper_model, model_loaded, current_model_size
+
+    # Skip model loading in CPU mode
+    if APP_MODE == 'cpu':
+        print("CPU MODE: Whisper model loading skipped", flush=True)
+        print("Stages 2 and 3 are disabled - use database transcripts only", flush=True)
+        model_loaded = False
+        return False
 
     if model_loaded and whisper_model is not None and current_model_size == model_size and not force_reload:
         print(f"{model_size} model already loaded")
@@ -107,6 +118,12 @@ def load_whisper_model(model_size="medium", force_reload=False):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/app-mode', methods=['GET'])
+def get_app_mode():
+    """Return the current application mode (GPU or CPU)"""
+    return jsonify({'mode': APP_MODE})
 
 
 # Project Management Routes
@@ -273,6 +290,11 @@ def stage1_analyze(project_id):
 @app.route('/api/projects/<project_id>/stage2/download', methods=['POST'])
 def stage2_download(project_id):
     """Stage 2: Download full video audio with anti-throttling"""
+    if APP_MODE == 'cpu':
+        return jsonify({
+            'error': 'Stage 2 is disabled in CPU mode. Use videos with existing database transcripts, or switch to GPU mode.'
+        }), 400
+
     try:
         project = Project(project_id)
         data = request.json
@@ -318,6 +340,11 @@ def stage2_download(project_id):
 def stage3_transcribe(project_id):
     """Stage 3: Transcribe audio segments"""
     global whisper_model, model_loaded
+
+    if APP_MODE == 'cpu':
+        return jsonify({
+            'error': 'Stage 3 is disabled in CPU mode. Use videos with existing database transcripts, or switch to GPU mode.'
+        }), 400
 
     if not model_loaded or not whisper_model:
         return jsonify({'error': 'Whisper model not loaded'}), 500
@@ -734,15 +761,23 @@ def log_pipeline():
 
 # Initialize application
 print("=" * 60, flush=True)
-print("FasterWhisperWebApp v2.1.1 - 2025-10-01", flush=True)
+print("FasterWhisperWebApp v2.2.0 - 2025-10-01", flush=True)
+print(f"Mode: {APP_MODE.upper()}", flush=True)
 print("=" * 60, flush=True)
 
-# Preload the Whisper model
-load_whisper_model()
-
-print("\n" + "=" * 60, flush=True)
-print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
-print("=" * 60 + "\n", flush=True)
+# Preload the Whisper model (only in GPU mode)
+if APP_MODE == 'gpu':
+    load_whisper_model()
+    print("\n" + "=" * 60, flush=True)
+    print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
+    print("All 6 stages available (GPU mode)", flush=True)
+    print("=" * 60 + "\n", flush=True)
+else:
+    print("\n" + "=" * 60, flush=True)
+    print("FRONTEND READY - Application available at http://localhost:5000", flush=True)
+    print("CPU MODE: Stages 1,4,5,6 available (requires database transcripts)", flush=True)
+    print("Stages 2 and 3 are disabled - no transcription available", flush=True)
+    print("=" * 60 + "\n", flush=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
