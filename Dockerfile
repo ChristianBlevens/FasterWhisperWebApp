@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
     curl \
+    aria2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Verify cuDNN installation (already included in base image)
@@ -26,10 +27,7 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-# Verify moviepy installation
-RUN python3 -c "import moviepy.editor; print('MoviePy successfully installed')" || echo "MoviePy installation failed"
+RUN pip3 install -r requirements.txt
 
 # Create necessary directories
 RUN mkdir -p downloads transcripts static templates
@@ -42,4 +40,4 @@ COPY . .
 EXPOSE 5000
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "1800", "app:app"]

@@ -6,7 +6,9 @@ torchaudio>=2.0.0
 numpy>=1.21.0
 
 # Video/Audio processing (use latest versions)
-yt-dlp  # Always get the latest version
+# CRITICAL: yt-dlp must be kept updated for proper nsig extraction and anti-throttling
+# YouTube changes player versions frequently, requiring yt-dlp updates to avoid throttling
+yt-dlp  # Always get the latest version - DO NOT pin to specific version
 moviepy==1.0.3
 ffmpeg-python
 

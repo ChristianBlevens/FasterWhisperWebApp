@@ -1,14 +1,15 @@
-version: '3.8'
-
 services:
   whisper-app:
     build: .
     ports:
       - "5000:5000"
     volumes:
-      - ./downloads:/app/downloads
-      - ./transcripts:/app/transcripts
-      - ./compilations:/app/compilations
+      - ./projects:/app/projects
+      - ./stages:/app/stages
+      - ./models:/app/models
+      - ./templates:/app/templates
+      - ./static:/app/static
+      - ./app.py:/app/app.py
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
